@@ -29,5 +29,5 @@ export default function ProtectedRoute({ children, onlyHeader = false }) {
     return session ? children : null;
   }
 
-  return session ? children : <Navigate to="/onboarding" replace />;
+  return session ? children : <Navigate to="/login" replace />;
 }
