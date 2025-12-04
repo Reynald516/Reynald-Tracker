@@ -1,124 +1,123 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 
-export type Transaction = {
-  id: string;
-  amount: number;
-  category: string;
-  description: string;
-  date: string;
-  emotion?: string;
-  sentiment?: number;
-  user_id?: string;
-};
+interface Transaction {
+  id: string
+  amount: number
+  category: string
+  description: string | null
+  date: string
+  created_at: string
+  user_id: string
+  type: 'income' | 'expense'
+  notes: string | null
+  emotion_id: string | null
+}
 
-const LS_KEY = "transactions_cache_v3";
+const CACHE_KEY = 'transactions_cache_v3'
 
-export function useTransaction() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useTransactions() {
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // =====================================================
-  // 1) LOAD INITIAL DATA
-  // =====================================================
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const { data, error } = await supabase
-          .from("transactions")
-          .select("*")
-          .order("date", { ascending: false });
+  // FETCH
+  const loadTransactions = useCallback(async () => {
+    setLoading(true)
 
-        if (error) throw error;
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: true })
 
-        setTransactions(data || []);
-        localStorage.setItem(LS_KEY, JSON.stringify(data || []));
-      } catch {
-        const saved = localStorage.getItem(LS_KEY);
-        if (saved) setTransactions(JSON.parse(saved));
-      }
-
-      setLoading(false);
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
     }
 
-    loadData();
-  }, []);
+    if (data) {
+      setTransactions(data)
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+    }
 
-  // =====================================================
-  // 2) REALTIME LISTENER (INSERT / DELETE)
-  // =====================================================
+    setLoading(false)
+  }, [])
+
+  // INITIAL LOAD + REALTIME
   useEffect(() => {
-    const channel = supabase
-      .channel("transactions-realtime")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "transactions" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            setTransactions((prev) => {
-              const exists = prev.some((t) => t.id === payload.new.id);
-              if (exists) return prev;
-              return [payload.new as Transaction, ...prev];
-            });
-          }
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (cached) setTransactions(JSON.parse(cached))
 
-          if (payload.eventType === "DELETE") {
-            setTransactions((prev) =>
-              prev.filter((t) => t.id !== payload.old.id)
-            );
-          }
+    loadTransactions()
+
+    const channel = supabase
+      .channel('transactions-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        payload => {
+          setTransactions(prev => {
+            let updated = prev
+
+            if (payload.eventType === 'INSERT') {
+              updated = [...prev, payload.new as Transaction]
+            } else if (payload.eventType === 'UPDATE') {
+              updated = prev.map(t =>
+                t.id === payload.new.id ? (payload.new as Transaction) : t
+              )
+            } else if (payload.eventType === 'DELETE') {
+              updated = prev.filter(t => t.id !== payload.old.id)
+            }
+
+            localStorage.setItem(CACHE_KEY, JSON.stringify(updated))
+            return updated
+          })
         }
       )
-      .subscribe();
+      .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    return () => supabase.removeChannel(channel)
+  }, [loadTransactions])
 
-  // =====================================================
-  // 3) ADD TRANSACTION
-  // =====================================================
-  async function addTransaction(t: Omit<Transaction, "id">) {
-    const tempId = crypto.randomUUID();
-    const newItem: Transaction = { id: tempId, ...t };
+  // ADD
+  const addTransaction = useCallback(async (tx) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    // Optimistic update
-    setTransactions((prev) => [newItem, ...prev]);
-
-    try {
-      const { error } = await supabase.from("transactions").insert(newItem);
-      if (error) throw error;
-    } catch {
-      console.warn("Insert gagal → disimpan lokal cache");
-
-      localStorage.setItem(
-        LS_KEY,
-        JSON.stringify([newItem, ...transactions])
-      );
-    }
+  if (!user) {
+    console.error("User belum login");
+    return null;
   }
 
-  // =====================================================
-  // 4) DELETE TRANSACTION
-  // =====================================================
-  async function removeTransaction(id: string) {
-    // Optimistic
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  const { data, error } = await supabase
+    .from("transactions")
+    .insert([
+      {
+        ...tx,
+        user_id: user.id,
+        type: "expense",
+        emotion_id: null
+      }
+    ])
+    .select("*")
+    .single();
 
-    try {
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
-    } catch {
-      console.warn("Delete gagal → update lokal saja");
-
-      const newData = transactions.filter((t) => t.id !== id);
-      localStorage.setItem(LS_KEY, JSON.stringify(newData));
-    }
+  if (error) {
+    console.error("Gagal tambah transaksi:", error.message);
+    return null;
   }
 
-  return { transactions, loading, addTransaction, removeTransaction };
+  return data;
+}, []);
+    
+
+  // DELETE
+  const deleteTransaction = useCallback(async (id: string) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', id)
+    if (error) setError(error.message)
+  }, [])
+
+  return { transactions, loading, error, addTransaction, deleteTransaction }
 }

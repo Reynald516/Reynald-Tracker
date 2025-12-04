@@ -1,7 +1,7 @@
 // src/pages/Index.tsx
 
 import { useToast } from "@/hooks/use-toast";
-import { useTransaction } from "@/hooks/use-transaction";
+import { useTransactions } from "@/hooks/use-transaction";
 import { useState, useMemo } from "react";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import Layout from "@/components/Layout";
@@ -12,7 +12,7 @@ import PieKategori from "@/components/Charts/PieKategori";
 
 export default function Index() {
   const { addToast } = useToast();
-  const { transactions, addTransaction, removeTransaction } = useTransaction();
+  const { transactions, addTransaction, deleteTransaction } = useTransactions();
 
   // ==========================
   // FILTER STATE
@@ -112,12 +112,13 @@ export default function Index() {
     const f = e.currentTarget;
 
     addTransaction({
-      amount: Number((f.elements.namedItem("amount") as HTMLInputElement).value),
-      category: (f.elements.namedItem("category") as HTMLSelectElement).value,
-      description: (f.elements.namedItem("description") as HTMLInputElement)
-        .value,
-      date: (f.elements.namedItem("date") as HTMLInputElement).value,
-    });
+  amount: Number((f.elements.namedItem("amount") as HTMLInputElement).value),
+  category: (f.elements.namedItem("category") as HTMLSelectElement).value,
+  description: (f.elements.namedItem("description") as HTMLInputElement).value,
+  date: (f.elements.namedItem("date") as HTMLInputElement).value,
+  type: "expense", // default, nanti bisa ubah ke "income" untuk pemasukan
+  notes: null
+});
 
     addToast({
       title: "Berhasil!",
@@ -329,7 +330,7 @@ export default function Index() {
 
                   <button
                     className="text-red-400 font-bold"
-                    onClick={() => removeTransaction(t.id)}
+                    onClick={() => deleteTransaction(t.id)}
                   >
                     Hapus
                   </button>
