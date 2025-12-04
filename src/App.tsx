@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { ToastProvider } from "@/hooks/use-toast";
-
+import Onboarding from "@/pages/Onboarding";
 import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/auth/Login";
@@ -63,7 +63,10 @@ export default function App() {
             <Toaster />
 
             <Routes>
-              {/* AUTH PAGES */}
+              {/* ONBOARDING */}
+              <Route path="/onboarding" element={<Onboarding />} />
+              
+              {/* AUTH */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 

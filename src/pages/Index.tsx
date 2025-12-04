@@ -4,10 +4,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useTransaction } from "@/hooks/use-transaction";
 import { useState, useMemo } from "react";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
-
+import Layout from "@/components/Layout";
 import LineHarian from "@/components/Charts/LineHarian";
 import BarBulanan from "@/components/Charts/BarBulanan";
 import PieKategori from "@/components/Charts/PieKategori";
+
 
 export default function Index() {
   const { addToast } = useToast();
@@ -99,7 +100,7 @@ export default function Index() {
   }, [filteredTransactions, kategoriTerbanyak, totalBulanan]);
 
   // ==========================
-  // INSIGHT PSYCHOLOGICAL (STATIC FOR NOW)
+  // INSIGHT PSYCHOLOGICAL
   // ==========================
   const insightPsycho =
     filteredTransactions.length === 0
@@ -108,7 +109,6 @@ export default function Index() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     const f = e.currentTarget;
 
     addTransaction({
@@ -127,7 +127,6 @@ export default function Index() {
     f.reset();
   };
 
-  // RESET FILTER
   const resetFilter = () => {
     setFilterCategory("Semua");
     setFilterFrom("");
@@ -135,209 +134,212 @@ export default function Index() {
   };
 
   // ==========================
-  // UI RENDER
+  // UI
   // ==========================
   return (
-    <div className="dashboard-page space-y-12 pb-24">
+    <Layout>
+      <div className="space-y-12 pb-24">
 
-      {/* TITLE */}
-      <h1 className="dashboard-title">
-        ReynaldTrack — Psychological Dashboard
-      </h1>
+        {/* TITLE */}
+        <h1 className="dashboard-title">
+          ReynaldTrack — Psychological Dashboard
+        </h1>
 
-      {/* TOTAL BULAN INI */}
-      <div className="section-card text-center">
-        <h2 className="text-lg font-medium opacity-80 mb-2">TOTAL BULAN INI</h2>
-        <p className="text-4xl font-bold text-green-500">
-          {formatRupiah(totalBulanan)}
-        </p>
-      </div>
-
-      {/* MINI STATS */}
-      <div className="grid md:grid-cols-3 gap-6">
+        {/* TOTAL BULAN INI */}
         <div className="section-card text-center">
-          <p className="text-sm opacity-70">Rata-rata Harian</p>
-          <p className="text-xl font-bold">{formatRupiah(avgHarian)}</p>
-        </div>
-
-        <div className="section-card text-center">
-          <p className="text-sm opacity-70">Kategori Terboros</p>
-          <p className="text-xl font-bold">{kategoriTerbanyak}</p>
-        </div>
-
-        <div className="section-card text-center">
-          <p className="text-sm opacity-70">Total Transaksi</p>
-          <p className="text-xl font-bold">{totalTransaksi}x</p>
-        </div>
-      </div>
-
-      {/* INSIGHT FINANCIAL */}
-      <div className="insight-box">
-        <div className="insight-emoji">💰</div>
-        <div>
-          <h3 className="font-semibold mb-1">Insight Finansial</h3>
-          <p>{insightFin}</p>
-        </div>
-      </div>
-
-      {/* INSIGHT PSYCHOLOGY */}
-      <div className="insight-box">
-        <div className="insight-emoji">🧠</div>
-        <div>
-          <h3 className="font-semibold mb-1">Insight Psikologi Uang</h3>
-          <p>{insightPsycho}</p>
-        </div>
-      </div>
-
-      {/* FILTER BAR */}
-      <div className="filter-card">
-        <select
-          value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
-          className="p-2 rounded text-black"
-        >
-          <option value="Semua">Semua Kategori</option>
-          <option value="Makan">Makan</option>
-          <option value="Transport">Transport</option>
-          <option value="Belanja">Belanja</option>
-          <option value="Lainnya">Lainnya</option>
-        </select>
-
-        <input
-          type="date"
-          value={filterFrom}
-          onChange={(e) => setFilterFrom(e.target.value)}
-          className="p-2 rounded text-black"
-        />
-
-        <input
-          type="date"
-          value={filterTo}
-          onChange={(e) => setFilterTo(e.target.value)}
-          className="p-2 rounded text-black"
-        />
-
-        <button
-          onClick={resetFilter}
-          className="bg-red-500 text-white rounded px-4 font-semibold"
-        >
-          Reset
-        </button>
-      </div>
-
-      {/* FORM + PIE */}
-      <div className="grid md:grid-cols-2 gap-6">
-
-        {/* FORM */}
-        <div className="section-card">
-          <h2 className="text-xl font-semibold mb-4">Tambah Transaksi</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="number"
-              name="amount"
-              placeholder="Jumlah (contoh: 50000)"
-              className="p-2 w-full rounded text-black"
-              required
-            />
-
-            <select
-              name="category"
-              className="p-2 w-full rounded text-black"
-              required
-            >
-              <option value="">Pilih kategori</option>
-              <option value="Makan">Makan</option>
-              <option value="Transport">Transport</option>
-              <option value="Belanja">Belanja</option>
-              <option value="Lainnya">Lainnya</option>
-            </select>
-
-            <input
-              type="text"
-              name="description"
-              placeholder="Deskripsi"
-              className="p-2 w-full rounded text-black"
-              required
-            />
-
-            <input
-              type="date"
-              name="date"
-              className="p-2 w-full rounded text-black"
-              required
-            />
-
-            <button
-              type="submit"
-              className="px-4 py-2 bg-primary text-white rounded font-semibold w-full"
-            >
-              Tambah
-            </button>
-          </form>
-        </div>
-
-        {/* PIE CHART */}
-        <div className="section-card">
-          <h2 className="text-xl font-semibold mb-3">
-            Persentase Pengeluaran per Kategori
+          <h2 className="text-lg font-medium opacity-80 mb-2">
+            TOTAL BULAN INI
           </h2>
-          <PieKategori transactions={filteredTransactions} />
+          <p className="text-4xl font-bold text-green-500">
+            {formatRupiah(totalBulanan)}
+          </p>
         </div>
-      </div>
 
-      {/* LINE CHART */}
-      <div className="section-card">
-        <h2 className="text-xl font-semibold mb-4">
-          Pengeluaran 7 Hari Terakhir
-        </h2>
-        <LineHarian transactions={filteredTransactions} />
-      </div>
+        {/* MINI STATS */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <div className="section-card text-center">
+            <p className="text-sm opacity-70">Rata-rata Harian</p>
+            <p className="text-xl font-bold">{formatRupiah(avgHarian)}</p>
+          </div>
 
-      {/* BAR CHART */}
-      <div className="section-card">
-        <h2 className="text-xl font-semibold mb-4">
-          Pengeluaran 12 Bulan Terakhir
-        </h2>
-        <BarBulanan transactions={filteredTransactions} />
-      </div>
+          <div className="section-card text-center">
+            <p className="text-sm opacity-70">Kategori Terboros</p>
+            <p className="text-xl font-bold">{kategoriTerbanyak}</p>
+          </div>
 
-      {/* LIST */}
-      <div className="section-card">
-        <h2 className="text-xl font-semibold mb-4">Daftar Transaksi</h2>
+          <div className="section-card text-center">
+            <p className="text-sm opacity-70">Total Transaksi</p>
+            <p className="text-xl font-bold">{totalTransaksi}x</p>
+          </div>
+        </div>
 
-        {filteredTransactions.length === 0 ? (
-          <p className="opacity-70">Tidak ada transaksi ditemukan.</p>
-        ) : (
-          <ul className="space-y-4">
-            {filteredTransactions.map((t) => (
-              <li
-                key={t.id}
-                className="bg-white/10 dark:bg-white/5 p-4 rounded flex justify-between items-center"
+        {/* INSIGHT FINANCIAL */}
+        <div className="insight-box">
+          <div className="insight-emoji">💰</div>
+          <div>
+            <h3 className="font-semibold mb-1">Insight Finansial</h3>
+            <p>{insightFin}</p>
+          </div>
+        </div>
+
+        {/* INSIGHT PSYCHOLOGY */}
+        <div className="insight-box">
+          <div className="insight-emoji">🧠</div>
+          <div>
+            <h3 className="font-semibold mb-1">Insight Psikologi Uang</h3>
+            <p>{insightPsycho}</p>
+          </div>
+        </div>
+
+        {/* FILTER BAR */}
+        <div className="filter-card">
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="p-2 rounded text-black"
+          >
+            <option value="Semua">Semua Kategori</option>
+            <option value="Makan">Makan</option>
+            <option value="Transport">Transport</option>
+            <option value="Belanja">Belanja</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="p-2 rounded text-black"
+          />
+
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="p-2 rounded text-black"
+          />
+
+          <button
+            onClick={resetFilter}
+            className="bg-red-500 text-white rounded px-4 font-semibold"
+          >
+            Reset
+          </button>
+        </div>
+
+        {/* FORM + PIE */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* FORM */}
+          <div className="section-card">
+            <h2 className="text-xl font-semibold mb-4">Tambah Transaksi</h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="number"
+                name="amount"
+                placeholder="Jumlah (contoh: 50000)"
+                className="p-2 w-full rounded text-black"
+                required
+              />
+
+              <select
+                name="category"
+                className="p-2 w-full rounded text-black"
+                required
               >
-                <div>
-                  <p className="font-semibold">{t.category}</p>
-                  <p>{t.description}</p>
-                  <p className="text-sm opacity-70">
-                    {formatTanggal(t.date)}
-                  </p>
-                  <p className="text-green-400 font-medium">
-                    {formatRupiah(t.amount)}
-                  </p>
-                </div>
+                <option value="">Pilih kategori</option>
+                <option value="Makan">Makan</option>
+                <option value="Transport">Transport</option>
+                <option value="Belanja">Belanja</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
 
-                <button
-                  className="text-red-400 font-bold"
-                  onClick={() => removeTransaction(t.id)}
+              <input
+                type="text"
+                name="description"
+                placeholder="Deskripsi"
+                className="p-2 w-full rounded text-black"
+                required
+              />
+
+              <input
+                type="date"
+                name="date"
+                className="p-2 w-full rounded text-black"
+                required
+              />
+
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary text-white rounded font-semibold w-full"
+              >
+                Tambah
+              </button>
+            </form>
+          </div>
+
+          {/* PIE CHART */}
+          <div className="section-card">
+            <h2 className="text-xl font-semibold mb-3">
+              Persentase Pengeluaran per Kategori
+            </h2>
+            <PieKategori transactions={filteredTransactions} />
+          </div>
+        </div>
+
+        {/* LINE CHART */}
+        <div className="section-card">
+          <h2 className="text-xl font-semibold mb-4">
+            Pengeluaran 7 Hari Terakhir
+          </h2>
+          <LineHarian transactions={filteredTransactions} />
+        </div>
+
+        {/* BAR CHART */}
+        <div className="section-card">
+          <h2 className="text-xl font-semibold mb-4">
+            Pengeluaran 12 Bulan Terakhir
+          </h2>
+          <BarBulanan transactions={filteredTransactions} />
+        </div>
+
+        {/* LIST */}
+        <div className="section-card">
+          <h2 className="text-xl font-semibold mb-4">Daftar Transaksi</h2>
+
+          {filteredTransactions.length === 0 ? (
+            <p className="opacity-70">Tidak ada transaksi ditemukan.</p>
+          ) : (
+            <ul className="space-y-4">
+              {filteredTransactions.map((t) => (
+                <li
+                  key={t.id}
+                  className="bg-white/10 dark:bg-white/5 p-4 rounded flex justify-between items-center"
                 >
-                  Hapus
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                  <div>
+                    <p className="font-semibold">{t.category}</p>
+                    <p>{t.description}</p>
+                    <p className="text-sm opacity-70">
+                      {formatTanggal(t.date)}
+                    </p>
+                    <p className="text-green-400 font-medium">
+                      {formatRupiah(t.amount)}
+                    </p>
+                  </div>
 
-    </div>
+                  <button
+                    className="text-red-400 font-bold"
+                    onClick={() => removeTransaction(t.id)}
+                  >
+                    Hapus
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+      </div>
+    </Layout>
   );
 }
