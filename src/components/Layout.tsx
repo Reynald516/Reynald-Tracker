@@ -1,6 +1,16 @@
+import ThemeButton from "./ThemeButton";
+import LogoutButton from "./LogoutButton";
+
 export default function Layout({ children }) {
   return (
     <div className="min-h-screen w-full px-4 py-10">
+
+      {/* HEADER BUTTONS */}
+      <div className="absolute top-4 right-4 flex gap-3 z-50">
+        <ThemeButton />
+        <LogoutButton />
+      </div>
+
       <div className="max-w-4xl mx-auto 
                       bg-white/10 dark:bg-black/30 
                       backdrop-blur-xl 
@@ -9,6 +19,7 @@ export default function Layout({ children }) {
                       space-y-10">
         {children}
       </div>
+
     </div>
   );
 }

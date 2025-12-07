@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { ToastProvider } from "@/hooks/use-toast";
 import Onboarding from "@/pages/Onboarding";
@@ -6,11 +7,14 @@ import Index from "@/pages/Index";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/auth/Login";
 import Register from "@/pages/auth/Register";
-
+import Layout from "@/components/Layout";
 import "./App.css";
 import { useTheme } from "@/hooks/use-theme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { supabase } from "@/lib/supabase";
+import { Navigate } from "react-router-dom";
+
+const noLayoutRoutes = ["/onboarding", "/login", "/register"];
 
 // ======================================
 // LOGOUT BUTTON — Pindah ke komponen khusus
@@ -34,59 +38,41 @@ function LogoutButton() {
   );
 }
 
-import { useNavigate } from "react-router-dom";
-
 export default function App() {
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+
+// AFTER const hideLayout = ...
+
+const hasOnboarding = localStorage.getItem("onboarding_data");
+
+// kalau user belum onboarding → paksa ke /onboarding
+if (!hasOnboarding && location.pathname !== "/onboarding") {
+  return <Navigate to="/onboarding" replace />;
+}
 
   return (
-    <BrowserRouter>
-      <div className="app-shell">
-        <div className="dashboard-container">
+    <>
+  <ToastProvider>
+    <Toaster />
 
-          {/* THEME + LOGOUT BUTTONS */}
-          <div className="absolute top-4 right-4 flex gap-3">
+    <Routes>
+      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
-            {/* THEME SWITCH */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg bg-white/20 dark:bg-black/20 backdrop-blur-sm"
-            >
-              {theme === "dark" ? "🌞 Light" : "🌙 Dark"}
-            </button>
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+              <Index />
+          </ProtectedRoute>
+        }
+      />
 
-            {/* LOGOUT BUTTON (sekarang aman karena di dalam BrowserRouter) */}
-            <LogoutButton />
-          </div>
-
-          <ToastProvider>
-            <Toaster />
-
-            <Routes>
-              {/* ONBOARDING */}
-              <Route path="/onboarding" element={<Onboarding />} />
-              
-              {/* AUTH */}
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-
-              {/* DASHBOARD */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
-              />
-
-              {/* 404 */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </ToastProvider>
-
-        </div>
-      </div>
-    </BrowserRouter>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </ToastProvider>
+</>
   );
 }
