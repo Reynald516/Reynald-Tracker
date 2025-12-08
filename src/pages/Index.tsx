@@ -8,11 +8,13 @@ import Layout from "@/components/Layout";
 import LineHarian from "@/components/Charts/LineHarian";
 import BarBulanan from "@/components/Charts/BarBulanan";
 import PieKategori from "@/components/Charts/PieKategori";
-
+import { usePsychologyEngine } from "@/hooks/use-psychology-engine";
+import { supabase } from "@/lib/supabase";
 
 export default function Index() {
   const { addToast } = useToast();
   const { transactions, addTransaction, deleteTransaction } = useTransactions();
+  const { loading, insight } = usePsychologyEngine();
 
   // ==========================
   // FILTER STATE
@@ -53,7 +55,7 @@ export default function Index() {
   }, [transactions, filterCategory, filterFrom, filterTo]);
 
   // ==========================
-  // MINI STATISTICS
+  // MINI STATS
   // ==========================
   const totalTransaksi = filteredTransactions.length;
 
@@ -100,34 +102,65 @@ export default function Index() {
   }, [filteredTransactions, kategoriTerbanyak, totalBulanan]);
 
   // ==========================
-  // INSIGHT PSYCHOLOGICAL
+  // HANDLE SUBMIT
   // ==========================
-  const insightPsycho =
-    filteredTransactions.length === 0
-      ? "Belum ada data untuk dianalisis. Coba catat beberapa transaksi dan tandai emosinya."
-      : "Polamu menunjukkan kecenderungan tertentu dalam pengeluaran. Identifikasi pemicu emosional bisa meningkatkan kontrol finansial.";
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const f = e.currentTarget;
 
-    addTransaction({
-  amount: Number((f.elements.namedItem("amount") as HTMLInputElement).value),
-  category: (f.elements.namedItem("category") as HTMLSelectElement).value,
-  description: (f.elements.namedItem("description") as HTMLInputElement).value,
-  date: (f.elements.namedItem("date") as HTMLInputElement).value,
-  type: "expense", // default, nanti bisa ubah ke "income" untuk pemasukan
-  notes: null
-});
+    const amount = Number((f.elements.namedItem("amount") as HTMLInputElement).value);
+    const category = (f.elements.namedItem("category") as HTMLSelectElement).value;
+    const description = (f.elements.namedItem("description") as HTMLInputElement).value;
+    const date = (f.elements.namedItem("date") as HTMLInputElement).value;
+
+    const emotion = (f.elements.namedItem("emotion") as HTMLSelectElement).value;
+    const intensity = Number((f.elements.namedItem("intensity") as HTMLInputElement).value);
+
+    // 1) INSERT TRANSAKSI
+    const trx = await addTransaction({
+      amount,
+      category,
+      description,
+      date,
+      type: "expense",
+      notes: null,
+    });
+
+    if (!trx || !trx.id) {
+      addToast({ title: "Error", description: "Gagal menambah transaksi." });
+      return;
+    }
+
+    // 2) INSERT EMOTION
+    const { data: emoData, error: emoError } = await supabase
+      .from("emotions")
+      .insert({
+        user_id: trx.user_id,
+        transaction_id: trx.id,
+        emotion,
+        intensity,
+        date,
+      })
+      .select("*")
+      .single();
+
+    if (emoError) {
+      console.error("GAGAL INSERT EMOTION >>>", emoError);
+    } else {
+      console.log("EMOTION MASUK >>>", emoData);
+    }
 
     addToast({
       title: "Berhasil!",
-      description: "Transaksi berhasil ditambahkan 🚀",
+      description: "Transaksi + Emosi tersimpan 🚀",
     });
 
     f.reset();
   };
 
+  // ==========================
+  // RESET FILTER (di luar handleSubmit)
+  // ==========================
   const resetFilter = () => {
     setFilterCategory("Semua");
     setFilterFrom("");
@@ -135,7 +168,7 @@ export default function Index() {
   };
 
   // ==========================
-  // UI
+  // UI RETURN
   // ==========================
   return (
     <Layout>
@@ -148,9 +181,7 @@ export default function Index() {
 
         {/* TOTAL BULAN INI */}
         <div className="section-card text-center">
-          <h2 className="text-lg font-medium opacity-80 mb-2">
-            TOTAL BULAN INI
-          </h2>
+          <h2 className="text-lg font-medium opacity-80 mb-2">TOTAL BULAN INI</h2>
           <p className="text-4xl font-bold text-green-500">
             {formatRupiah(totalBulanan)}
           </p>
@@ -183,12 +214,31 @@ export default function Index() {
           </div>
         </div>
 
-        {/* INSIGHT PSYCHOLOGY */}
+        {/* INSIGHT PSYKOLOGI (AI ENGINE) */}
         <div className="insight-box">
           <div className="insight-emoji">🧠</div>
           <div>
-            <h3 className="font-semibold mb-1">Insight Psikologi Uang</h3>
-            <p>{insightPsycho}</p>
+            <h3 className="font-semibold mb-1">Insight Psikologi Uang (AI)</h3>
+
+            {loading && <p className="opacity-70">Menganalisis pola emosionalmu...</p>}
+
+            {!loading && insight && (
+              <>
+                <p className="font-medium">{insight.summary}</p>
+                <p className="opacity-70 mt-2">
+                  Emosi dominan: <b>{insight.dominantEmotion || "-"}</b>
+                </p>
+                <p className="opacity-70">
+                  Intensitas rata-rata: <b>{insight.avgIntensity}</b>
+                </p>
+              </>
+            )}
+
+            {!loading && !insight && (
+              <p className="opacity-70">
+                Belum ada data emosional. Tambahkan emosi pada transaksi untuk melihat insight AI.
+              </p>
+            )}
           </div>
         </div>
 
@@ -228,26 +278,16 @@ export default function Index() {
           </button>
         </div>
 
-        {/* FORM + PIE */}
+        {/* FORM + PIE CHART */}
         <div className="grid md:grid-cols-2 gap-6">
           {/* FORM */}
           <div className="section-card">
             <h2 className="text-xl font-semibold mb-4">Tambah Transaksi</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                type="number"
-                name="amount"
-                placeholder="Jumlah (contoh: 50000)"
-                className="p-2 w-full rounded text-black"
-                required
-              />
+              <input type="number" name="amount" placeholder="Jumlah (contoh: 50000)" className="p-2 w-full rounded text-black" required />
 
-              <select
-                name="category"
-                className="p-2 w-full rounded text-black"
-                required
-              >
+              <select name="category" className="p-2 w-full rounded text-black" required>
                 <option value="">Pilih kategori</option>
                 <option value="Makan">Makan</option>
                 <option value="Transport">Transport</option>
@@ -255,25 +295,31 @@ export default function Index() {
                 <option value="Lainnya">Lainnya</option>
               </select>
 
+              <input type="text" name="description" placeholder="Deskripsi" className="p-2 w-full rounded text-black" required />
+
+              <select name="emotion" className="p-2 w-full rounded text-black" required>
+                <option value="">Pilih Emosi</option>
+                <option value="Tenang">Tenang</option>
+                <option value="Senang">Senang</option>
+                <option value="Stres">Stres</option>
+                <option value="Sedih">Sedih</option>
+                <option value="Impulsif">Impulsif</option>
+                <option value="Bosan">Bosan</option>
+              </select>
+
               <input
-                type="text"
-                name="description"
-                placeholder="Deskripsi"
+                type="number"
+                name="intensity"
+                min={1}
+                max={10}
+                placeholder="Intensitas Emosi (1–10)"
                 className="p-2 w-full rounded text-black"
                 required
               />
 
-              <input
-                type="date"
-                name="date"
-                className="p-2 w-full rounded text-black"
-                required
-              />
+              <input type="date" name="date" className="p-2 w-full rounded text-black" required />
 
-              <button
-                type="submit"
-                className="px-4 py-2 bg-primary text-white rounded font-semibold w-full"
-              >
+              <button type="submit" className="px-4 py-2 bg-primary text-white rounded font-semibold w-full">
                 Tambah
               </button>
             </form>
@@ -281,26 +327,20 @@ export default function Index() {
 
           {/* PIE CHART */}
           <div className="section-card">
-            <h2 className="text-xl font-semibold mb-3">
-              Persentase Pengeluaran per Kategori
-            </h2>
+            <h2 className="text-xl font-semibold mb-3">Persentase Pengeluaran per Kategori</h2>
             <PieKategori transactions={filteredTransactions} />
           </div>
         </div>
 
         {/* LINE CHART */}
         <div className="section-card">
-          <h2 className="text-xl font-semibold mb-4">
-            Pengeluaran 7 Hari Terakhir
-          </h2>
+          <h2 className="text-xl font-semibold mb-4">Pengeluaran 7 Hari Terakhir</h2>
           <LineHarian transactions={filteredTransactions} />
         </div>
 
         {/* BAR CHART */}
         <div className="section-card">
-          <h2 className="text-xl font-semibold mb-4">
-            Pengeluaran 12 Bulan Terakhir
-          </h2>
+          <h2 className="text-xl font-semibold mb-4">Pengeluaran 12 Bulan Terakhir</h2>
           <BarBulanan transactions={filteredTransactions} />
         </div>
 
@@ -313,25 +353,15 @@ export default function Index() {
           ) : (
             <ul className="space-y-4">
               {filteredTransactions.map((t) => (
-                <li
-                  key={t.id}
-                  className="bg-white/10 dark:bg-white/5 p-4 rounded flex justify-between items-center"
-                >
+                <li key={t.id} className="bg-white/10 dark:bg-white/5 p-4 rounded flex justify-between items-center">
                   <div>
                     <p className="font-semibold">{t.category}</p>
                     <p>{t.description}</p>
-                    <p className="text-sm opacity-70">
-                      {formatTanggal(t.date)}
-                    </p>
-                    <p className="text-green-400 font-medium">
-                      {formatRupiah(t.amount)}
-                    </p>
+                    <p className="text-sm opacity-70">{formatTanggal(t.date)}</p>
+                    <p className="text-green-400 font-medium">{formatRupiah(t.amount)}</p>
                   </div>
 
-                  <button
-                    className="text-red-400 font-bold"
-                    onClick={() => deleteTransaction(t.id)}
-                  >
+                  <button className="text-red-400 font-bold" onClick={() => deleteTransaction(t.id)}>
                     Hapus
                   </button>
                 </li>
