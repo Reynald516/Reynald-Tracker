@@ -26,17 +26,36 @@ export default function Index() {
   const now = new Date();
 
   // ==========================
-  // TOTAL BULAN INI
+  // TOTALS (NEW!)
   // ==========================
-  const totalBulanan = transactions
-    .filter((t) => {
-      const d = new Date(t.date);
-      return (
-        d.getMonth() === now.getMonth() &&
-        d.getFullYear() === now.getFullYear()
-      );
-    })
-    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalIncome = useMemo(() => {
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return (
+          t.type === "income" &&
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions]);
+
+  const totalExpense = useMemo(() => {
+    return transactions
+      .filter(t => {
+        const d = new Date(t.date);
+        return (
+          t.type === "expense" &&
+          d.getMonth() === now.getMonth() &&
+          d.getFullYear() === now.getFullYear()
+        );
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [transactions]);
+
+  const netBalance = totalIncome - totalExpense;
 
   // ==========================
   // FILTERED TRANSACTIONS
@@ -55,21 +74,23 @@ export default function Index() {
   }, [transactions, filterCategory, filterFrom, filterTo]);
 
   // ==========================
-  // MINI STATS
+  // MINI STATISTICS
   // ==========================
   const totalTransaksi = filteredTransactions.length;
 
   const avgHarian = useMemo(() => {
-    if (totalBulanan === 0) return 0;
+    if (totalExpense === 0) return 0;
     const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return Math.round(totalBulanan / days);
-  }, [totalBulanan]);
+    return Math.round(totalExpense / days);
+  }, [totalExpense]);
 
   const kategoriTerbanyak = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredTransactions.forEach((t) => {
-      map[t.category] = (map[t.category] || 0) + t.amount;
-    });
+    filteredTransactions
+      .filter((t) => t.type === "expense")
+      .forEach((t) => {
+        map[t.category] = (map[t.category] || 0) + t.amount;
+      });
 
     let maxCat = "-";
     let maxVal = 0;
@@ -88,18 +109,18 @@ export default function Index() {
   // INSIGHT FINANCIAL
   // ==========================
   const insightFin = useMemo(() => {
-    if (filteredTransactions.length === 0) {
+    if (filteredTransactions.filter(t => t.type === "expense").length === 0) {
       return "Belum ada data untuk dianalisis.";
     }
 
-    if (kategoriTerbanyak !== "-" && totalBulanan > 0) {
+    if (kategoriTerbanyak !== "-" && totalExpense > 0) {
       return `Pengeluaran terbesar bulan ini berasal dari kategori ${kategoriTerbanyak}. Mengurangi 15–20% bisa menghemat sekitar ${formatRupiah(
-        Math.round(totalBulanan * 0.2)
+        Math.round(totalExpense * 0.2)
       )}.`;
     }
 
     return "Pengeluaranmu stabil, lanjutkan kebiasaan baik ini!";
-  }, [filteredTransactions, kategoriTerbanyak, totalBulanan]);
+  }, [filteredTransactions, kategoriTerbanyak, totalExpense]);
 
   // ==========================
   // HANDLE SUBMIT
@@ -108,6 +129,7 @@ export default function Index() {
     e.preventDefault();
     const f = e.currentTarget;
 
+    const type = (f.elements.namedItem("type") as HTMLSelectElement).value;
     const amount = Number((f.elements.namedItem("amount") as HTMLInputElement).value);
     const category = (f.elements.namedItem("category") as HTMLSelectElement).value;
     const description = (f.elements.namedItem("description") as HTMLInputElement).value;
@@ -116,13 +138,13 @@ export default function Index() {
     const emotion = (f.elements.namedItem("emotion") as HTMLSelectElement).value;
     const intensity = Number((f.elements.namedItem("intensity") as HTMLInputElement).value);
 
-    // 1) INSERT TRANSAKSI
+    // INSERT TRANSAKSI
     const trx = await addTransaction({
       amount,
       category,
       description,
       date,
-      type: "expense",
+      type,
       notes: null,
     });
 
@@ -131,24 +153,14 @@ export default function Index() {
       return;
     }
 
-    // 2) INSERT EMOTION
-    const { data: emoData, error: emoError } = await supabase
-      .from("emotions")
-      .insert({
-        user_id: trx.user_id,
-        transaction_id: trx.id,
-        emotion,
-        intensity,
-        date,
-      })
-      .select("*")
-      .single();
-
-    if (emoError) {
-      console.error("GAGAL INSERT EMOTION >>>", emoError);
-    } else {
-      console.log("EMOTION MASUK >>>", emoData);
-    }
+    // INSERT EMOTION
+    await supabase.from("emotions").insert({
+      user_id: trx.user_id,
+      transaction_id: trx.id,
+      emotion,
+      intensity,
+      date,
+    });
 
     addToast({
       title: "Berhasil!",
@@ -158,9 +170,6 @@ export default function Index() {
     f.reset();
   };
 
-  // ==========================
-  // RESET FILTER (di luar handleSubmit)
-  // ==========================
   const resetFilter = () => {
     setFilterCategory("Semua");
     setFilterFrom("");
@@ -179,30 +188,30 @@ export default function Index() {
           ReynaldTrack — Psychological Dashboard
         </h1>
 
-        {/* TOTAL BULAN INI */}
-        <div className="section-card text-center">
-          <h2 className="text-lg font-medium opacity-80 mb-2">TOTAL BULAN INI</h2>
-          <p className="text-4xl font-bold text-green-500">
-            {formatRupiah(totalBulanan)}
-          </p>
-        </div>
-
-        {/* MINI STATS */}
+        {/* NEW 3 SUMMARY BOXES */}
         <div className="grid md:grid-cols-3 gap-6">
+          
           <div className="section-card text-center">
-            <p className="text-sm opacity-70">Rata-rata Harian</p>
-            <p className="text-xl font-bold">{formatRupiah(avgHarian)}</p>
+            <p className="text-sm opacity-70">Total Pemasukan Bulan Ini</p>
+            <p className="text-xl font-bold text-green-400">
+              {formatRupiah(totalIncome)}
+            </p>
           </div>
 
           <div className="section-card text-center">
-            <p className="text-sm opacity-70">Kategori Terboros</p>
-            <p className="text-xl font-bold">{kategoriTerbanyak}</p>
+            <p className="text-sm opacity-70">Total Pengeluaran Bulan Ini</p>
+            <p className="text-xl font-bold text-red-400">
+              {formatRupiah(totalExpense)}
+            </p>
           </div>
 
           <div className="section-card text-center">
-            <p className="text-sm opacity-70">Total Transaksi</p>
-            <p className="text-xl font-bold">{totalTransaksi}x</p>
+            <p className="text-sm opacity-70">Saldo Bersih (Income - Expense)</p>
+            <p className="text-xl font-bold text-blue-400">
+              {formatRupiah(netBalance)}
+            </p>
           </div>
+
         </div>
 
         {/* INSIGHT FINANCIAL */}
@@ -214,7 +223,7 @@ export default function Index() {
           </div>
         </div>
 
-        {/* INSIGHT PSYKOLOGI (AI ENGINE) */}
+        {/* INSIGHT PSYKOLOGI */}
         <div className="insight-box">
           <div className="insight-emoji">🧠</div>
           <div>
@@ -278,13 +287,19 @@ export default function Index() {
           </button>
         </div>
 
-        {/* FORM + PIE CHART */}
+        {/* FORM */}
         <div className="grid md:grid-cols-2 gap-6">
-          {/* FORM */}
           <div className="section-card">
             <h2 className="text-xl font-semibold mb-4">Tambah Transaksi</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* NEW FIELD: TYPE */}
+              <select name="type" className="p-2 w-full rounded text-black" required>
+                <option value="expense">Pengeluaran</option>
+                <option value="income">Pemasukan</option>
+              </select>
+
               <input type="number" name="amount" placeholder="Jumlah (contoh: 50000)" className="p-2 w-full rounded text-black" required />
 
               <select name="category" className="p-2 w-full rounded text-black" required>
@@ -307,15 +322,7 @@ export default function Index() {
                 <option value="Bosan">Bosan</option>
               </select>
 
-              <input
-                type="number"
-                name="intensity"
-                min={1}
-                max={10}
-                placeholder="Intensitas Emosi (1–10)"
-                className="p-2 w-full rounded text-black"
-                required
-              />
+              <input type="number" name="intensity" min={1} max={10} placeholder="Intensitas Emosi (1–10)" className="p-2 w-full rounded text-black" required />
 
               <input type="date" name="date" className="p-2 w-full rounded text-black" required />
 
@@ -328,20 +335,20 @@ export default function Index() {
           {/* PIE CHART */}
           <div className="section-card">
             <h2 className="text-xl font-semibold mb-3">Persentase Pengeluaran per Kategori</h2>
-            <PieKategori transactions={filteredTransactions} />
+            <PieKategori transactions={filteredTransactions.filter(t => t.type === "expense")} />
           </div>
         </div>
 
         {/* LINE CHART */}
         <div className="section-card">
           <h2 className="text-xl font-semibold mb-4">Pengeluaran 7 Hari Terakhir</h2>
-          <LineHarian transactions={filteredTransactions} />
+          <LineHarian transactions={filteredTransactions.filter(t => t.type === "expense")} />
         </div>
 
         {/* BAR CHART */}
         <div className="section-card">
           <h2 className="text-xl font-semibold mb-4">Pengeluaran 12 Bulan Terakhir</h2>
-          <BarBulanan transactions={filteredTransactions} />
+          <BarBulanan transactions={filteredTransactions.filter(t => t.type === "expense")} />
         </div>
 
         {/* LIST */}
@@ -353,12 +360,16 @@ export default function Index() {
           ) : (
             <ul className="space-y-4">
               {filteredTransactions.map((t) => (
-                <li key={t.id} className="bg-white/10 dark:bg-white/5 p-4 rounded flex justify-between items-center">
+                <li key={t.id} className="bg-white/10 p-4 rounded flex justify-between items-center">
                   <div>
-                    <p className="font-semibold">{t.category}</p>
+                    <p className="font-semibold">
+                      {t.type === "income" ? "🟢 Income" : "🔴 Expense"} — {t.category}
+                    </p>
                     <p>{t.description}</p>
                     <p className="text-sm opacity-70">{formatTanggal(t.date)}</p>
-                    <p className="text-green-400 font-medium">{formatRupiah(t.amount)}</p>
+                    <p className={t.type === "income" ? "text-green-400" : "text-red-400"}>
+                      {formatRupiah(t.amount)}
+                    </p>
                   </div>
 
                   <button className="text-red-400 font-bold" onClick={() => deleteTransaction(t.id)}>

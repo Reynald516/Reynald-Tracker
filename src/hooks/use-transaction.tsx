@@ -101,7 +101,7 @@ export function useTransactions() {
         {
           ...tx,
           user_id: user.id,
-          type: "expense",
+          type: tx.type,
           emotion_id: null,
         },
       ])
