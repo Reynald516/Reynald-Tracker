@@ -13,6 +13,8 @@ import { useTheme } from "@/hooks/use-theme";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { supabase } from "@/lib/supabase";
 import { Navigate } from "react-router-dom";
+import { useProfile } from "@/hooks/use-profile";
+import { useAuth } from "@/hooks/use-auth";
 
 const noLayoutRoutes = ["/onboarding", "/login", "/register"];
 
@@ -42,37 +44,58 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
-// AFTER const hideLayout = ...
+  // ==========================
+  // ALL HOOKS MUST ALWAYS RUN
+  // ==========================
+  const { user, loading: authLoading } = useAuth();
+  const { profile, loading: profileLoading } = useProfile();
 
-const hasOnboarding = localStorage.getItem("onboarding_data");
+  // Saat loading → TIDAK RENDER APA PUN
+  if (authLoading || profileLoading) return null;
 
-// kalau user belum onboarding → paksa ke /onboarding
-if (!hasOnboarding && location.pathname !== "/onboarding") {
-  return <Navigate to="/onboarding" replace />;
+  // ALLOW routes saat user belum login
+const publicRoutes = ["/login", "/register", "/onboarding"];
+
+// 1) User BELUM login
+if (!user) {
+  // boleh ke login/register/onboarding
+  if (!publicRoutes.includes(location.pathname)) {
+    return <Navigate to="/login" replace />;
+  }
 }
 
+// 2) User SUDAH login tapi belum onboarding
+if (user && profile && !profile.onboarding_completed) {
+  if (location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
+  }
+}
+
+  // ========================================
+  // RENDER ROUTES NORMAL
+  // ========================================
   return (
-    <>
-  <ToastProvider>
-    <Toaster />
+    <ToastProvider>
+      <Toaster />
 
-    <Routes>
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Routes>
+        {/* PUBLIC */}
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
+        {/* PRIVATE */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
               <Index />
-          </ProtectedRoute>
-        }
-      />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </ToastProvider>
-</>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </ToastProvider>
   );
 }

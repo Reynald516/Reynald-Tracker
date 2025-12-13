@@ -12,6 +12,7 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
 
+    // 1) REGISTER USER
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -21,10 +22,12 @@ export default function Register() {
 
     if (error) {
       alert("Register gagal: " + error.message);
-    } else {
-      alert("Berhasil! Silakan cek email kamu untuk verifikasi.");
-      window.location.href = "/login";
+      return;
     }
+
+    // 2) JANGAN INSERT PROFILE DI SINI (karena user belum ter-auth)
+    alert("Akun berhasil dibuat! Silakan cek email untuk verifikasi, lalu login.");
+    window.location.href = "/login";
   }
 
   return (
@@ -41,6 +44,7 @@ export default function Register() {
             type="email"
             className="p-3 rounded w-full text-black"
             placeholder="Email"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
@@ -49,6 +53,7 @@ export default function Register() {
             type="password"
             className="p-3 rounded w-full text-black"
             placeholder="Password"
+            value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />

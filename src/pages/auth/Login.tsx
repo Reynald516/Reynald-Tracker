@@ -1,4 +1,3 @@
-// src/pages/auth/Login.tsx
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Layout from "@/components/Layout";
@@ -12,18 +11,52 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    // 1) LOGIN USER
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    setLoading(false);
-
     if (error) {
       alert("Login gagal: " + error.message);
-    } else {
-      window.location.href = "/";
+      setLoading(false);
+      return;
     }
+
+    const user = data.user;
+    if (!user) {
+      alert("Login gagal: user tidak ditemukan.");
+      setLoading(false);
+      return;
+    }
+
+    // 2) Cek apakah profile sudah ada
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    // 3) Kalau belum ada → buat
+    if (!existingProfile) {
+      const { error: createError } = await supabase
+        .from("profiles")
+        .insert([
+          {
+            user_id: user.id,
+            onboarding_completed: false,
+          },
+        ]);
+
+      if (createError) {
+        alert("Gagal membuat profile: " + createError.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // 4) Arahkan ke onboarding
+    window.location.href = "/";
   }
 
   return (
@@ -40,6 +73,7 @@ export default function Login() {
             type="email"
             className="p-3 rounded w-full text-black"
             placeholder="Email"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
@@ -48,6 +82,7 @@ export default function Login() {
             type="password"
             className="p-3 rounded w-full text-black"
             placeholder="Password"
+            value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
@@ -57,7 +92,7 @@ export default function Login() {
             disabled={loading}
             className="bg-blue-500 text-white p-3 rounded w-full font-semibold"
           >
-            {loading ? "Masuk..." : "Login"}
+            {loading ? "Masuk..." : "Masuk"}
           </button>
         </form>
 

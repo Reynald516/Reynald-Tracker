@@ -2,7 +2,7 @@
 
 import { useToast } from "@/hooks/use-toast";
 import { useTransactions } from "@/hooks/use-transaction";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatRupiah, formatTanggal } from "@/lib/utils";
 import Layout from "@/components/Layout";
 import LineHarian from "@/components/Charts/LineHarian";
@@ -15,6 +15,14 @@ export default function Index() {
   const { addToast } = useToast();
   const { transactions, addTransaction, deleteTransaction } = useTransactions();
   const { loading, insight } = usePsychologyEngine();
+
+  // ==========================
+  // DAILY EMOTION LOGGER STATE (NEW)
+  // ==========================
+  const [showEmotionModal, setShowEmotionModal] = useState(false);
+  const [emotionType, setEmotionType] = useState("");
+  const [emotionIntensity, setEmotionIntensity] = useState<number | null>(null);
+  const [todayEmotion, setTodayEmotion] = useState<any>(null);
 
   // ==========================
   // FILTER STATE
@@ -154,10 +162,10 @@ export default function Index() {
     }
 
     // INSERT EMOTION
-    await supabase.from("emotions").insert({
+    await supabase.from("transaction_emotions").insert({
       user_id: trx.user_id,
       transaction_id: trx.id,
-      emotion,
+      emotion_type: emotion,
       intensity,
       date,
     });
@@ -177,6 +185,74 @@ export default function Index() {
   };
 
   // ==========================
+  // DAILY EMOTION LOGGER LOGIC (NEW)
+  // ==========================
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  async function fetchTodayEmotion() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("daily_emotions")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("date", todayISO)
+      .maybeSingle();
+
+    if (error) {
+      console.error("fetchTodayEmotion error:", error);
+      return;
+    }
+
+    setTodayEmotion(data || null);
+  }
+
+  const [savingEmotion, setSavingEmotion] = useState(false);
+
+  async function saveTodayEmotion() {
+    if (savingEmotion) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert("User belum login!");
+
+    if (!emotionType || !emotionIntensity) return;
+
+    setSavingEmotion(true);
+
+    // UPSERT: kalau hari ini sudah ada, update. kalau belum ada, insert.
+    const payload = {
+      user_id: user.id,
+      emotion_type: emotionType,
+      intensity: emotionIntensity,
+      date: todayISO,
+    };
+
+    // NOTE: upsert butuh unique constraint (user_id, date) kalau mau bener-bener strict.
+    // Kalau belum ada constraint, ini masih bisa jalan tapi bisa duplikat kalau user spam klik.
+    const { error } = await supabase
+      .from("daily_emotions")
+      .upsert(payload, { onConflict: "user_id,date" });
+
+    setSavingEmotion(false);
+
+    if (error) {
+      console.error("saveTodayEmotion error:", error);
+      alert("Gagal menyimpan emosi harian.");
+      return;
+    }
+
+    setShowEmotionModal(false);
+    setEmotionType("");
+    setEmotionIntensity(null);
+    fetchTodayEmotion();
+  }
+
+  useEffect(() => {
+    fetchTodayEmotion();
+  }, []);
+
+  // ==========================
   // UI RETURN
   // ==========================
   return (
@@ -187,6 +263,26 @@ export default function Index() {
         <h1 className="dashboard-title">
           ReynaldTrack — Psychological Dashboard
         </h1>
+
+        {/* DAILY EMOTION LOGGER (NEW) */}
+        <div className="section-card">
+          <h2 className="text-xl font-semibold mb-3">Mood Hari Ini</h2>
+          
+          {todayEmotion ? (
+            <p className="text-lg">
+              {todayEmotion.emotion_type} ({todayEmotion.intensity}/10)
+            </p>
+          ) : (
+            <p className="opacity-70">Belum ada mood hari ini.</p>
+          )}
+          
+          <button
+            onClick={() => setShowEmotionModal(true)}
+            className="mt-4 w-full bg-purple-600 text-white py-3 rounded-xl font-semibold"
+          >
+            Bagaimana perasaanmu hari ini?
+          </button>
+        </div>
 
         {/* NEW 3 SUMMARY BOXES */}
         <div className="grid md:grid-cols-3 gap-6">
@@ -314,12 +410,12 @@ export default function Index() {
 
               <select name="emotion" className="p-2 w-full rounded text-black" required>
                 <option value="">Pilih Emosi</option>
-                <option value="Tenang">Tenang</option>
-                <option value="Senang">Senang</option>
-                <option value="Stres">Stres</option>
-                <option value="Sedih">Sedih</option>
-                <option value="Impulsif">Impulsif</option>
-                <option value="Bosan">Bosan</option>
+                <option value="CALM">Tenang</option>
+                <option value="HAPPY">Senang</option>
+                <option value="STRESSED">Stres</option>
+                <option value="SAD">Sedih</option>
+                <option value="IMPULSIVE">Impulsif</option>
+                <option value="BORED">Bosan</option>
               </select>
 
               <input type="number" name="intensity" min={1} max={10} placeholder="Intensitas Emosi (1–10)" className="p-2 w-full rounded text-black" required />
@@ -380,6 +476,62 @@ export default function Index() {
             </ul>
           )}
         </div>
+        {/* EMOTION MODAL (NEW) */}
+        {showEmotionModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="bg-white text-black p-6 rounded-2xl w-full max-w-sm space-y-4">
+              <h2 className="text-xl font-bold text-center">
+                Perasaanmu hari ini?
+              </h2>
+              
+              <div className="grid grid-cols-3 gap-3 text-3xl">
+                {[
+                  { label: "😄", value: "HAPPY" },
+                  { label: "🙂", value: "CALM" },
+                  { label: "😣", value: "STRESSED" },
+                  { label: "😞", value: "SAD" },
+                  { label: "⚡", value: "IMPULSIVE" },
+                  { label: "😴", value: "BORED" },
+                ].map((emo) => (
+                <button
+                key={emo.value}
+                onClick={() => setEmotionType(emo.value)}
+                className={`p-3 rounded-xl border ${
+                  emotionType === emo.value ? "bg-purple-500 text-white" : "bg-gray-100"
+                }`}
+              >
+                {emo.label}
+              </button>
+              ))}
+            </div>
+          
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={emotionIntensity ?? ""}
+            onChange={(e) => setEmotionIntensity(Number(e.target.value))}
+            placeholder="Intensitas (1–10)"
+            className="w-full p-3 rounded-lg border"
+          />
+          
+          <button
+            onClick={saveTodayEmotion}
+            disabled={savingEmotion || !emotionType || !emotionIntensity}
+            className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+          >
+            {savingEmotion ? "Menyimpan..." : "Simpan"}
+          </button>
+          
+          <button
+            onClick={() => setShowEmotionModal(false)}
+            className="w-full text-sm opacity-60"
+          >
+            Batal
+          </button>
+            </div>
+          </div>
+        )}
 
       </div>
     </Layout>
