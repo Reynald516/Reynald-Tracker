@@ -10,6 +10,7 @@ import BarBulanan from "@/components/Charts/BarBulanan";
 import PieKategori from "@/components/Charts/PieKategori";
 import { usePsychologyEngine } from "@/hooks/use-psychology-engine";
 import { supabase } from "@/lib/supabase";
+import { useEmotionalBaseline } from "@/hooks/use-emotional-baseline";
 
 export default function Index() {
   const { addToast } = useToast();
@@ -32,6 +33,8 @@ export default function Index() {
   const [filterTo, setFilterTo] = useState("");
 
   const now = new Date();
+
+  const { baseline, loading: baselineLoading } = useEmotionalBaseline();
 
   // ==========================
   // TOTALS (NEW!)
@@ -347,6 +350,24 @@ export default function Index() {
           </div>
         </div>
 
+        <div className="section-card">
+          <h2 className="text-lg font-semibold">Emotional Baseline (14 Hari)</h2>
+          {baselineLoading && <p className="opacity-70">Menghitung baseline emosional...</p>}
+          
+          {!baselineLoading && baseline && (
+            <>
+              <p className="text-3xl font-bold">{baseline.baseline_score}/100</p>
+              <p className="opacity-70 mt-2">{baseline.summary}</p>
+            </>
+          )}
+          
+          {!baselineLoading && !baseline && (
+            <p className="opacity-70">
+              Baseline emosional akan terbentuk setelah 14 hari data.
+            </p>
+          )}
+        </div>
+        
         {/* FILTER BAR */}
         <div className="filter-card">
           <select
@@ -476,6 +497,7 @@ export default function Index() {
             </ul>
           )}
         </div>
+
         {/* EMOTION MODAL (NEW) */}
         {showEmotionModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
