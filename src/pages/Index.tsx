@@ -14,6 +14,9 @@ import { useEmotionalBaseline } from "@/hooks/use-emotional-baseline";
 import { useAuth } from "@/hooks/use-auth";
 import { useEmotionalSignature } from "@/hooks/use-emotional-signature";
 import { useEmotionalRisk } from "@/hooks/use-emotional-risk";
+import { useSpendingIntervention } from "@/hooks/use-spending-intervention";
+import SpendingInterventionBanner from "@/components/SpendingInterventionBanner";
+import { useLastSpendingMinutesAgo } from "@/hooks/use-last-spending";
 
 
 export default function Index() {
@@ -23,7 +26,13 @@ export default function Index() {
   const { transactions, addTransaction, deleteTransaction } = useTransactions();
   const { loading, insight } = usePsychologyEngine();
   const { risk, loading: riskLoading } = useEmotionalRisk(user?.id);
-
+  const { minutesAgo } = useLastSpendingMinutesAgo(user?.id ?? null);
+  const { intervention } = useSpendingIntervention(
+    risk,
+    minutesAgo
+  );
+  const isBlocked = intervention?.level === "BLOCK";
+  
   // ==========================
   // DAILY EMOTION LOGGER STATE (NEW)
   // ==========================
@@ -145,6 +154,16 @@ export default function Index() {
   // ==========================
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+     // 🚨 HARD BLOCK — AI AUTHORITY
+     if (intervention?.level === "BLOCK") {
+      addToast({
+        title: "Transaksi Diblokir",
+        description: intervention.message,
+      });
+      return;
+    }
+
     const f = e.currentTarget;
 
     const type = (f.elements.namedItem("type") as HTMLSelectElement).value;
@@ -494,6 +513,8 @@ export default function Index() {
           </button>
         </div>
 
+        <SpendingInterventionBanner intervention={intervention} />
+
         {/* FORM */}
         <div className="grid md:grid-cols-2 gap-6">
           <div className="section-card">
@@ -533,8 +554,12 @@ export default function Index() {
 
               <input type="date" name="date" className="p-2 w-full rounded text-black" required />
 
-              <button type="submit" className="px-4 py-2 bg-primary text-white rounded font-semibold w-full">
-                Tambah
+              <button
+                type="submit"
+                disabled={isBlocked}
+                className="px-4 py-2 bg-primary text-white rounded font-semibold w-full disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isBlocked ? "Diblokir sementara oleh AI" : "Tambah"}
               </button>
             </form>
           </div>
