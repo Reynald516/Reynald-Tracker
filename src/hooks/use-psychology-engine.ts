@@ -16,7 +16,7 @@ export function usePsychologyEngine() {
       setLoading(true);
 
       const { data: emoData } = await supabase
-        .from("emotions")
+        .from("daily_emotions")
         .select("*")
         .eq("user_id", user.id);
 

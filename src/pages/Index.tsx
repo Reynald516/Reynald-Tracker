@@ -11,11 +11,18 @@ import PieKategori from "@/components/Charts/PieKategori";
 import { usePsychologyEngine } from "@/hooks/use-psychology-engine";
 import { supabase } from "@/lib/supabase";
 import { useEmotionalBaseline } from "@/hooks/use-emotional-baseline";
+import { useAuth } from "@/hooks/use-auth";
+import { useEmotionalSignature } from "@/hooks/use-emotional-signature";
+import { useEmotionalRisk } from "@/hooks/use-emotional-risk";
+
 
 export default function Index() {
+  const { user } = useAuth();
+  const { signature, loading: sigLoading } = useEmotionalSignature(user?.id);
   const { addToast } = useToast();
   const { transactions, addTransaction, deleteTransaction } = useTransactions();
   const { loading, insight } = usePsychologyEngine();
+  const { risk, loading: riskLoading } = useEmotionalRisk(user?.id);
 
   // ==========================
   // DAILY EMOTION LOGGER STATE (NEW)
@@ -322,6 +329,89 @@ export default function Index() {
           </div>
         </div>
 
+        {/* EMOTIONAL SIGNATURE */}
+        <div className="section-card">
+          <h2 className="text-lg font-semibold">Emotional Signature (14 Hari)</h2>
+          
+          {sigLoading && <p className="opacity-70">Menganalisis pola emosional...</p>}
+          
+          {!sigLoading && signature && (
+            <>
+              <p className="text-lg">
+                Emosi Dominan: <b>{signature.dominantEmotion}</b>
+              </p>
+              <p className="opacity-70">
+                Rasio Positif: {(signature.positiveRatio * 100).toFixed(0)}%
+              </p>
+              <p className="opacity-70">
+                Rasio Negatif: {(signature.negativeRatio * 100).toFixed(0)}%
+              </p>
+            </>
+          )}
+          
+          {!sigLoading && !signature && (
+            <p className="opacity-70">Belum cukup data emosional.</p>
+          )}
+        </div>
+
+        {/* EMOTIONAL RISK (AI CORE) */}
+        <div className="section-card border-2 border-red-500/30">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            🚨 Emotional Risk Assessment
+          </h2>
+          
+          {riskLoading && (
+            <p className="opacity-70 mt-2">Menganalisis risiko emosional...</p>
+          )}
+          
+          {!riskLoading && risk && (
+            <>
+              <p className="text-3xl font-bold mt-2">
+                {risk.riskScore}/100 —{" "}
+                <span
+                  className={
+                    risk.riskLevel === "HIGH"
+                      ? "text-red-500"
+                      : risk.riskLevel === "MEDIUM"
+                      ? "text-yellow-400"
+                      : "text-green-400"
+                  }
+                >
+                  {risk.riskLevel}
+                </span>
+              </p>
+              
+              <p className="opacity-80 mt-2">{risk.summary}</p>
+              
+              {risk.drivers.length > 0 && (
+                <ul className="mt-3 list-disc list-inside text-sm opacity-80">
+                  {risk.drivers.map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+          
+          {!riskLoading && !risk && (
+            <p className="opacity-70 mt-2">
+              Belum cukup data emosional untuk menghitung risiko.
+            </p>
+          )}
+
+          {risk?.recommendedActions.length > 0 && (
+            <div className="mt-4">
+              <p className="font-semibold mb-1">Rekomendasi AI:</p>
+              <ul className="list-disc list-inside text-sm opacity-80">
+                {risk.recommendedActions.map((a, i) => (
+                  <li key={i}>{a}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+        </div>
+
         {/* INSIGHT PSYKOLOGI */}
         <div className="insight-box">
           <div className="insight-emoji">🧠</div>
@@ -367,7 +457,7 @@ export default function Index() {
             </p>
           )}
         </div>
-        
+
         {/* FILTER BAR */}
         <div className="filter-card">
           <select
