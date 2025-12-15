@@ -15,7 +15,7 @@ export default function SpendingInterventionBanner({
       : "bg-blue-500";
 
   return (
-    <div className={${color} text-white p-4 rounded-xl mb-4}>
+    <div className={`${color} text-white p-4 rounded-xl mb-4`}>
       <p className="font-semibold">⚠ {intervention.message}</p>
       {intervention.cooldownMinutes > 0 && (
         <p className="text-sm opacity-90 mt-1">
