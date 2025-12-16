@@ -10,6 +10,7 @@ export function useSpendingIntervention(
 ) {
   const { user } = useAuth();
   const lastLoggedRef = useRef<string | null>(null);
+  const [interventionLogId, setInterventionLogId] = useState<string | null>(null);
 
   const intervention = useMemo(() => {
     return buildSpendingIntervention(risk, lastSpendingMinutesAgo);
@@ -23,18 +24,16 @@ export function useSpendingIntervention(
     if (lastLoggedRef.current === signature) return;
     lastLoggedRef.current = signature;
 
-    logIntervention({
-      userId: user.id,
-      risk,
-      intervention,
-      minutesAgo: lastSpendingMinutesAgo,
-    });
-  }, [
-    user?.id,
-    risk?.riskScore,
-    intervention?.level,
-    lastSpendingMinutesAgo,
-  ]);
+    (async () => {
+      const id = await logIntervention({
+        userId: user.id,
+        risk,
+        intervention,
+        minutesAgo: lastSpendingMinutesAgo,
+      });
+      if (id) setInterventionLogId(id);
+    })();
+  }, [user?.id, risk?.riskScore, intervention?.level, lastSpendingMinutesAgo]);
 
-  return { intervention };
+  return { intervention, interventionLogId };
 }

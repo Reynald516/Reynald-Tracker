@@ -16,15 +16,22 @@ export async function logIntervention({
   };
   minutesAgo: number | null;
 }) {
-  if (!userId || !intervention) return;
+  if (!userId || !intervention) return null;
 
-  await supabase.from("intervention_logs").insert({
-    user_id: userId,
-    risk_score: risk.riskScore,
-    risk_level: risk.riskLevel,
-    intervention_level: intervention.level,
-    message: intervention.message,
-    cooldown_minutes: intervention.cooldownMinutes ?? null,
-    minutes_since_last_spending: minutesAgo,
-  });
+  const { data, error } = await supabase
+    .from("intervention_logs")
+    .insert({
+      user_id: userId,
+      risk_score: risk.riskScore,
+      risk_level: risk.riskLevel,
+      intervention_level: intervention.level,
+      message: intervention.message,
+      cooldown_minutes: intervention.cooldownMinutes ?? null,
+      minutes_since_last_spending: minutesAgo ?? null,
+    })
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.id ?? null;
 }

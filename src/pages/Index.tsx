@@ -17,6 +17,7 @@ import { useEmotionalRisk } from "@/hooks/use-emotional-risk";
 import { useSpendingIntervention } from "@/hooks/use-spending-intervention";
 import SpendingInterventionBanner from "@/components/SpendingInterventionBanner";
 import { useLastSpendingMinutesAgo } from "@/hooks/use-last-spending";
+import { useInterventionFeedbackWatcher } from "@/hooks/use-intervention-feedback";
 
 
 export default function Index() {
@@ -27,10 +28,15 @@ export default function Index() {
   const { loading, insight } = usePsychologyEngine();
   const { risk, loading: riskLoading } = useEmotionalRisk(user?.id);
   const { minutesAgo } = useLastSpendingMinutesAgo(user?.id ?? null);
-  const { intervention } = useSpendingIntervention(
+  const { intervention,interventionLogId } = useSpendingIntervention(
     risk,
     minutesAgo
   );
+  useInterventionFeedbackWatcher({
+    userId: user?.id ?? null,
+    interventionLogId,
+    windowMinutes: 60,
+  });
   const isBlocked = intervention?.level === "BLOCK";
   
   // ==========================
