@@ -3,6 +3,7 @@ import { buildSpendingIntervention } from "@/lib/spending-intervention-engine";
 import { EmotionalRisk } from "@/lib/emotional-risk-engine";
 import { logIntervention } from "@/lib/intervention-logger";
 import { useAuth } from "./use-auth";
+import { useUserInterventionProfile } from "./use-user-intervention-profile";
 
 export function useSpendingIntervention(
   risk: EmotionalRisk | null,
@@ -11,10 +12,11 @@ export function useSpendingIntervention(
   const { user } = useAuth();
   const lastLoggedRef = useRef<string | null>(null);
   const [interventionLogId, setInterventionLogId] = useState<string | null>(null);
+  const { profile } = useUserInterventionProfile(user?.id);
 
   const intervention = useMemo(() => {
-    return buildSpendingIntervention(risk, lastSpendingMinutesAgo);
-  }, [risk, lastSpendingMinutesAgo]);
+    return buildSpendingIntervention(risk, lastSpendingMinutesAgo, profile);
+  }, [risk, lastSpendingMinutesAgo, profile]);
 
   useEffect(() => {
     if (!user || !risk || !intervention) return;

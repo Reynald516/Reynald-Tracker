@@ -35,6 +35,8 @@ export default function Index() {
   useInterventionFeedbackWatcher({
     userId: user?.id ?? null,
     interventionLogId,
+    intervention,
+    risk,
     windowMinutes: 60,
   });
   const isBlocked = intervention?.level === "BLOCK";
