@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { buildSpendingIntervention } from "@/lib/spending-intervention-engine";
 import { EmotionalRisk } from "@/lib/emotional-risk-engine";
 import { logIntervention } from "@/lib/intervention-logger";
